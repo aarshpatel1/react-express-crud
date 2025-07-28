@@ -13,6 +13,7 @@ import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Checkbox } from "primereact/checkbox";
 import { Tag } from "primereact/tag";
+import { Message } from "primereact/message";
 import axios from "axios";
 
 export default function DisplayUser() {
@@ -40,7 +41,7 @@ export default function DisplayUser() {
 
 	useEffect(() => {
 		fetchUsers();
-	}, []);
+	});
 
 	const fetchUsers = async () => {
 		try {
@@ -127,6 +128,15 @@ export default function DisplayUser() {
 		) {
 			try {
 				if (user.id) {
+					user.firstName = toTitleCase(user.firstName);
+					user.lastName = toTitleCase(user.lastName);
+					user.email = user.email.toLowerCase();
+					user.mobileNumber = user.mobileNumber.toString();
+					user.address = toTitleCase(user.address.trim());
+					user.hobbies = user.hobbies.map((hobby) =>
+						hobby.toLowerCase()
+					);
+
 					await axios.put(
 						`http://127.0.0.1:8000/api/user/updateUser/${user.id}`,
 						user
@@ -334,11 +344,37 @@ export default function DisplayUser() {
 	};
 
 	const genderBodyTemplate = (rowData) => {
-		return <Tag value={rowData.gender} />;
+		return rowData.gender ? toTitleCase(rowData.gender) : "Unknown";
+	};
+
+	const toTitleCase = (str) => {
+		if (!str) {
+			return ""; // Handle empty or null strings
+		}
+		return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase());
 	};
 
 	const hobbiesBodyTemplate = (rowData) => {
-		return rowData.hobbies?.join(", ") || "None";
+		if (Array.isArray(rowData.hobbies) && rowData.hobbies.length > 0) {
+			const hobbyColors = {
+				playing: "success",
+				reading: "info",
+				singing: "warning",
+			};
+			return (
+				<>
+					{rowData.hobbies.map((hobby, idx) => (
+						<Tag
+							key={hobby + idx}
+							value={toTitleCase(hobby)}
+							severity={hobbyColors[hobby] || "secondary"}
+							className="mr-1 mb-1"
+						/>
+					))}
+				</>
+			);
+		}
+		return "None";
 	};
 
 	const actionBodyTemplate = (rowData) => {
@@ -422,7 +458,15 @@ export default function DisplayUser() {
 		</React.Fragment>
 	);
 
-	return (
+	return users.length === 0 ? (
+		<div className="card w-3 m-auto">
+			<Message
+				className="border-primary w-full justify-content-start"
+				severity="info"
+				text="No users found. Please add a new user."
+			/>
+		</div>
+	) : (
 		<div>
 			<Toast ref={toast} position="bottom-right" />
 			<div className="card">

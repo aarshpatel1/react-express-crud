@@ -1,11 +1,19 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { RadioButton } from "primereact/radiobutton";
 import { Checkbox } from "primereact/checkbox";
 import { Button } from "primereact/button";
-import { ToastContainer, toast, Bounce } from "react-toastify";
+// import { ToastContainer, toast, Bounce } from "react-toastify";
+import { Toast } from "primereact/toast";
 import axios from "axios";
+
+function toTitleCase(str) {
+	if (!str) {
+		return ""; // Handle empty or null strings
+	}
+	return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase());
+}
 
 function RegisterUser() {
 	const [user, setUser] = useState({
@@ -17,6 +25,8 @@ function RegisterUser() {
 		address: "",
 		hobbies: [],
 	});
+
+	const toast = useRef(null);
 
 	const [loading, setLoading] = useState(false);
 
@@ -50,28 +60,62 @@ function RegisterUser() {
 			!user.address ||
 			user.hobbies.length === 0
 		) {
-			toast.error("Fields are missing");
+			// toast.error("Fields are missing");
+			toast.current?.show({
+				sevirity: "error",
+				summary: "Error",
+				detail: "Please fill all the fields.",
+				life: 3000,
+			});
 			setLoading(false);
 			return;
 		}
 
 		try {
+			user.firstName = toTitleCase(user.firstName);
+			user.lastName = toTitleCase(user.lastName);
+			user.gender = user.gender.toLowerCase();
+			user.mobileNumber = user.mobileNumber.toString();
+			user.email = user.email.toLowerCase();
+			user.address = toTitleCase(user.address.trim());
+			user.hobbies = user.hobbies.map((hobby) => hobby.toLowerCase());
+
 			let response = await axios.post(
 				"http://127.0.0.1:8000/api/user/addUser",
 				user
 			);
 
 			if (response.status === 200 || response.status === 201) {
-				toast.success("User added successfully!");
+				// toast.success("User added successfully!");
+				toast.current?.show({
+					severity: "success",
+					summary: "Success",
+					detail: "User added successfully!",
+					life: 3000,
+				});
 			} else {
-				toast.error("Unexpected response from server.");
+				// toast.error("Unexpected response from server.");
+				toast.current?.show({
+					severity: "error",
+					summary: "Error",
+					detail: "Unexpected response from server.",
+					life: 3000,
+				});
 			}
 			console.log(response);
 		} catch (err) {
-			toast.error(
-				err.response?.data?.message ||
-					"Error adding data! Please try again."
-			);
+			// toast.error(
+			// 	err.response?.data?.message ||
+			// 		"Error adding data! Please try again."
+			// );
+			toast.current?.show({
+				severity: "error",
+				summary: "Error",
+				detail:
+					err.response?.data?.message ||
+					"Error adding data! Please try again.",
+				life: 3000,
+			});
 			console.error("Error adding data!", err);
 		} finally {
 			setLoading(false);
@@ -97,6 +141,7 @@ function RegisterUser() {
 						<label htmlFor="firstName">First Name: </label>
 						<InputText
 							name="firstName"
+							id="firstName"
 							placeholder="First Name"
 							autoFocus
 							value={user.firstName || ""}
@@ -108,6 +153,7 @@ function RegisterUser() {
 						<label htmlFor="lastName">Last Name: </label>
 						<InputText
 							name="lastName"
+							id="lastName"
 							placeholder="Last Name"
 							value={user.lastName || ""}
 							onChange={handleOnChange}
@@ -118,6 +164,8 @@ function RegisterUser() {
 						<label htmlFor="mobileNumber">Mobile Number: </label>
 						<InputText
 							name="mobileNumber"
+							id="mobileNumber"
+							type="tel"
 							keyfilter="int"
 							placeholder="Mobile Number"
 							value={user.mobileNumber || ""}
@@ -128,7 +176,10 @@ function RegisterUser() {
 					<div className="flex flex-wrap align-items-center gap-3">
 						<label htmlFor="email">Email ID: </label>
 						<InputText
+							type="email"
 							name="email"
+							id="email"
+							autoComplete="email"
 							keyfilter="email"
 							placeholder="Email ID"
 							value={user.email || ""}
@@ -141,6 +192,7 @@ function RegisterUser() {
 						<InputTextarea
 							name="address"
 							autoResize
+							id="address"
 							rows={5}
 							cols={30}
 							placeholder="Address"
@@ -236,7 +288,7 @@ function RegisterUser() {
 				</div>
 			</form>
 
-			<ToastContainer
+			{/* <ToastContainer
 				position="bottom-right"
 				autoClose={5000}
 				hideProgressBar={false}
@@ -248,7 +300,8 @@ function RegisterUser() {
 				pauseOnHover
 				theme="dark"
 				transition={Bounce}
-			/>
+			/> */}
+			<Toast ref={toast} position="bottom-right" />
 		</>
 	);
 }
