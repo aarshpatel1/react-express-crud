@@ -3,6 +3,8 @@ import { InputText } from "primereact/inputtext";
 import { Badge } from "primereact/badge";
 import { Avatar } from "primereact/avatar";
 import ProfileMenu from "./ProfileMenu";
+import LoginDialog from "./LoginDialog";
+import SignupDialog from "./SignupDialog";
 
 export default function Navbar() {
 	const itemRenderer = (item) => (
@@ -95,7 +97,9 @@ export default function Navbar() {
 				className="w-8rem sm:w-auto"
 			/>
 
-			<ProfileMenu />
+			<LoginDialog />
+			<SignupDialog />
+			{/* <ProfileMenu /> */}
 		</div>
 	);
 
