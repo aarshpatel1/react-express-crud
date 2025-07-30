@@ -1,6 +1,12 @@
 import mongoose from "mongoose";
+import { config } from "dotenv";
 
-mongoose.connect("mongodb://localhost:27017/users");
+config({
+	path: "./.env",
+	quiet: true,
+});
+
+mongoose.connect(process.env.MONGO_URI);
 
 const db = mongoose.connection;
 

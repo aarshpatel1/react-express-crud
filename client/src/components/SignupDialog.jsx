@@ -14,7 +14,7 @@ export default function SignupDialog() {
 				onClick={() => setVisible(true)}
 			/>
 			<Dialog
-				className="border-round-3xl"
+				className="border-round-xl"
 				visible={visible}
 				modal
 				onHide={() => {
@@ -23,9 +23,9 @@ export default function SignupDialog() {
 				}}
 				content={({ hide }) => (
 					<div
-						className="flex flex-column px-6 py-3 gap-4 border-round-3xl border-round-lg shadow-8"
+						className="flex flex-column px-6 py-3 gap-4 border-round-xl shadow-8"
 						style={{
-							backdropFilter: "blur(20px)",
+							backdropFilter: "blur(50px)",
 						}}
 					>
 						<h2 className="text-3xl mb-0 text-center">Signup</h2>
@@ -75,13 +75,13 @@ export default function SignupDialog() {
 								label="Sign-Up"
 								onClick={(e) => hide(e)}
 								text
-								className="p-3 w-full text-primary-50 border-1 border-white-alpha-30 hover:bg-white-alpha-10 border-round-3xl"
+								className="p-3 w-full text-primary-50 border-1 border-white-alpha-30 hover:bg-white-alpha-10"
 							></Button>
 							<Button
 								label="Cancel"
 								onClick={(e) => hide(e)}
 								text
-								className="p-3 w-full text-primary-50 border-1 border-white-alpha-30 hover:bg-white-alpha-10 border-round-3xl"
+								className="p-3 w-full text-primary-50 border-1 border-white-alpha-30 hover:bg-white-alpha-10"
 							></Button>
 						</div>
 					</div>

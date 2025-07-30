@@ -1,5 +1,6 @@
 import express from "express";
 import userRoutes from "./user.js";
+import adminRoutes from "./admin.js";
 
 const router = express.Router();
 
@@ -23,5 +24,7 @@ router.get("/", (req, res) => {
 });
 
 router.use("/user", userRoutes);
+
+router.use("/admin", adminRoutes);
 
 export default router;

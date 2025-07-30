@@ -15,8 +15,16 @@ import { Checkbox } from "primereact/checkbox";
 import { Tag } from "primereact/tag";
 import { Message } from "primereact/message";
 import axios from "axios";
+import { isAuthenticated } from "../Authenticate";
+import { useNavigate } from "react-router-dom";
 
 export default function DisplayUser() {
+	const navigate = useNavigate();
+
+	if (!isAuthenticated()) {
+		navigate("/");
+	}
+
 	let chosenUser = {
 		id: null,
 		firstName: "",
