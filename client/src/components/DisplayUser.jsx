@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { classNames } from "primereact/utils";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -15,17 +15,34 @@ import { Checkbox } from "primereact/checkbox";
 import { Tag } from "primereact/tag";
 import { Message } from "primereact/message";
 import axios from "axios";
-import { isAuthenticated } from "../Authenticate";
+import { isAuthenticated, getCurrentUser } from "../Authenticate";
 import { useNavigate } from "react-router-dom";
+
+// Add API service with authentication token
+const API = axios.create({
+	baseURL: "http://127.0.0.1:8000/api",
+});
+
+// Add request interceptor to include auth token in all requests
+API.interceptors.request.use(
+	(config) => {
+		const token = localStorage.getItem("token");
+		if (token) {
+			// Add Bearer token to Authorization header
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+		return config;
+	},
+	(error) => Promise.reject(error)
+);
 
 export default function DisplayUser() {
 	const navigate = useNavigate();
+	const toast = useRef(null);
+	const dt = useRef(null);
 
-	if (!isAuthenticated()) {
-		navigate("/");
-	}
-
-	let chosenUser = {
+	// Initial user state
+	const chosenUser = {
 		id: null,
 		firstName: "",
 		lastName: "",
@@ -44,29 +61,39 @@ export default function DisplayUser() {
 	const [selectedUsers, setSelectedUsers] = useState([]);
 	const [submitted, setSubmitted] = useState(false);
 	const [globalFilter, setGlobalFilter] = useState(null);
-	const toast = useRef(null);
-	const dt = useRef(null);
+	const [loading, setLoading] = useState(false);
 
+	// Check authentication when component mounts
 	useEffect(() => {
-		fetchUsers();
-	});
+		// Check if user is authenticated, redirect if not
+		if (!isAuthenticated()) {
+			toast.current?.show({
+				severity: "warn",
+				summary: "Authentication Required",
+				detail: "Please log in to access this page",
+				life: 3000,
+			});
+			navigate("/");
+		}
+	}, [navigate]);
 
-	const fetchUsers = async () => {
+	// Fetch users when component mounts
+	useEffect(() => {
+		if (isAuthenticated()) {
+			fetchUsers();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []); // Run only once on mount
+
+	// Fetch users from API
+	const fetchUsers = useCallback(async () => {
+		setLoading(true);
 		try {
-			const response = await axios.get(
-				"http://127.0.0.1:8000/api/user/getAllUsers"
-			);
-
+			// Use API service with token included
+			const response = await API.get("/user/getAllUsers");
 			const userData = response?.data?.users || [];
 
 			if (!Array.isArray(userData) || userData.length === 0) {
-				toast.current?.show({
-					severity: "info",
-					summary: "No Users",
-					detail: "No users found in the system.",
-					life: 3000,
-					position: "bottom-right",
-				});
 				setUsers([]);
 				return;
 			}
@@ -78,17 +105,25 @@ export default function DisplayUser() {
 
 			setUsers(processedData);
 		} catch (error) {
-			if (axios.isAxiosError(error) && error.response?.status === 404) {
-				// toast.current?.show({
-				// 	severity: "info",
-				// 	summary: "No Users Found",
-				// 	detail: "The user list could not be found (404).",
-				// 	life: 3000,
-				// 	position: "bottom-right",
-				// });
+			console.error("Error fetching users:", error);
+
+			// Handle 401 unauthorized errors by redirecting to login
+			if (axios.isAxiosError(error) && error.response?.status === 401) {
+				toast.current?.show({
+					severity: "error",
+					summary: "Session Expired",
+					detail: "Your session has expired. Please log in again.",
+					life: 3000,
+				});
+				// Clear invalid token
+				localStorage.removeItem("token");
+				navigate("/");
+			} else if (
+				axios.isAxiosError(error) &&
+				error.response?.status === 404
+			) {
 				setUsers([]);
 			} else {
-				console.error("Error fetching users:", error.message);
 				toast.current?.show({
 					severity: "error",
 					summary: "Server Error",
@@ -97,8 +132,10 @@ export default function DisplayUser() {
 					position: "bottom-right",
 				});
 			}
+		} finally {
+			setLoading(false);
 		}
-	};
+	}, [navigate]);
 
 	const openNew = () => {
 		// Ensure a fresh user object with empty hobbies array
@@ -136,19 +173,21 @@ export default function DisplayUser() {
 		) {
 			try {
 				if (user.id) {
-					user.firstName = toTitleCase(user.firstName);
-					user.lastName = toTitleCase(user.lastName);
-					user.email = user.email.toLowerCase();
-					user.mobileNumber = user.mobileNumber.toString();
-					user.address = toTitleCase(user.address.trim());
-					user.hobbies = user.hobbies.map((hobby) =>
-						hobby.toLowerCase()
-					);
+					// Format the data
+					const formattedUser = {
+						...user,
+						firstName: toTitleCase(user.firstName),
+						lastName: toTitleCase(user.lastName),
+						email: user.email.toLowerCase(),
+						mobileNumber: user.mobileNumber.toString(),
+						address: toTitleCase(user.address.trim()),
+						hobbies: user.hobbies.map((hobby) =>
+							hobby.toLowerCase()
+						),
+					};
 
-					await axios.put(
-						`http://127.0.0.1:8000/api/user/updateUser/${user.id}`,
-						user
-					);
+					// Use API service with auth token
+					await API.put(`/user/updateUser/${user.id}`, formattedUser);
 					toast.current.show({
 						severity: "success",
 						summary: "Successful",
@@ -157,11 +196,21 @@ export default function DisplayUser() {
 						position: "bottom-right",
 					});
 				} else {
-					// Add new user
-					await axios.post(
-						"http://127.0.0.1:8000/api/user/addUser",
-						user
-					);
+					// Format the data
+					const formattedUser = {
+						...user,
+						firstName: toTitleCase(user.firstName),
+						lastName: toTitleCase(user.lastName),
+						email: user.email.toLowerCase(),
+						mobileNumber: user.mobileNumber.toString(),
+						address: toTitleCase(user.address.trim()),
+						hobbies: user.hobbies.map((hobby) =>
+							hobby.toLowerCase()
+						),
+					};
+
+					// Use API service with auth token
+					await API.post("/user/addUser", formattedUser);
 					toast.current.show({
 						severity: "success",
 						summary: "Successful",
@@ -177,13 +226,30 @@ export default function DisplayUser() {
 				setUser({ ...chosenUser });
 			} catch (error) {
 				console.error("Error saving user:", error);
-				toast.current.show({
-					severity: "error",
-					summary: "Error",
-					detail: "Failed to save user",
-					life: 3000,
-					position: "bottom-right",
-				});
+
+				// Handle 401 unauthorized errors
+				if (
+					axios.isAxiosError(error) &&
+					error.response?.status === 401
+				) {
+					toast.current.show({
+						severity: "error",
+						summary: "Session Expired",
+						detail: "Your session has expired. Please log in again.",
+						life: 3000,
+						position: "bottom-right",
+					});
+					localStorage.removeItem("token");
+					navigate("/");
+				} else {
+					toast.current.show({
+						severity: "error",
+						summary: "Error",
+						detail: "Failed to save user",
+						life: 3000,
+						position: "bottom-right",
+					});
+				}
 			}
 		}
 	};
@@ -205,9 +271,8 @@ export default function DisplayUser() {
 
 	const deleteUser = async () => {
 		try {
-			await axios.delete(
-				`http://127.0.0.1:8000/api/user/deleteUser/${user.id}`
-			);
+			// Use API service with auth token
+			await API.delete(`/user/deleteUser/${user.id}`);
 
 			await fetchUsers();
 			setDeleteUserDialog(false);
@@ -221,13 +286,27 @@ export default function DisplayUser() {
 			});
 		} catch (error) {
 			console.error("Error deleting user:", error);
-			toast.current.show({
-				severity: "error",
-				summary: "Error",
-				detail: "Failed to delete user",
-				life: 3000,
-				position: "bottom-right",
-			});
+
+			// Handle 401 unauthorized errors
+			if (axios.isAxiosError(error) && error.response?.status === 401) {
+				toast.current.show({
+					severity: "error",
+					summary: "Session Expired",
+					detail: "Your session has expired. Please log in again.",
+					life: 3000,
+					position: "bottom-right",
+				});
+				localStorage.removeItem("token");
+				navigate("/");
+			} else {
+				toast.current.show({
+					severity: "error",
+					summary: "Error",
+					detail: "Failed to delete user",
+					life: 3000,
+					position: "bottom-right",
+				});
+			}
 		}
 	};
 
@@ -264,9 +343,7 @@ export default function DisplayUser() {
 
 			// Create an array of promises for each deletion request
 			const deletePromises = selectedUsers.map((user) =>
-				axios.delete(
-					`http://127.0.0.1:8000/api/user/deleteUser/${user.id}`
-				)
+				API.delete(`/user/deleteUser/${user.id}`)
 			);
 
 			// Wait for all deletion requests to complete
@@ -290,13 +367,27 @@ export default function DisplayUser() {
 			});
 		} catch (error) {
 			console.error("Error deleting users:", error);
-			toast.current.show({
-				severity: "error",
-				summary: "Error",
-				detail: "Failed to delete users",
-				life: 3000,
-				position: "bottom-right",
-			});
+
+			// Handle 401 unauthorized errors
+			if (axios.isAxiosError(error) && error.response?.status === 401) {
+				toast.current.show({
+					severity: "error",
+					summary: "Session Expired",
+					detail: "Your session has expired. Please log in again.",
+					life: 3000,
+					position: "bottom-right",
+				});
+				localStorage.removeItem("token");
+				navigate("/");
+			} else {
+				toast.current.show({
+					severity: "error",
+					summary: "Error",
+					detail: "Failed to delete users",
+					life: 3000,
+					position: "bottom-right",
+				});
+			}
 		}
 	};
 
@@ -387,7 +478,7 @@ export default function DisplayUser() {
 
 	const actionBodyTemplate = (rowData) => {
 		return (
-			<React.Fragment>
+			<>
 				<Button
 					icon="pi pi-pencil"
 					rounded
@@ -402,7 +493,7 @@ export default function DisplayUser() {
 					severity="danger"
 					onClick={() => confirmDeleteUser(rowData)}
 				/>
-			</React.Fragment>
+			</>
 		);
 	};
 
@@ -421,7 +512,7 @@ export default function DisplayUser() {
 	);
 
 	const userDialogFooter = (
-		<React.Fragment>
+		<>
 			<Button
 				label="Cancel"
 				icon="pi pi-times"
@@ -429,11 +520,11 @@ export default function DisplayUser() {
 				onClick={hideDialog}
 			/>
 			<Button label="Save" icon="pi pi-check" onClick={saveUser} />
-		</React.Fragment>
+		</>
 	);
 
 	const deleteUserDialogFooter = (
-		<React.Fragment>
+		<>
 			<Button
 				label="No"
 				icon="pi pi-times"
@@ -446,11 +537,11 @@ export default function DisplayUser() {
 				severity="danger"
 				onClick={deleteUser}
 			/>
-		</React.Fragment>
+		</>
 	);
 
 	const deleteUsersDialogFooter = (
-		<React.Fragment>
+		<>
 			<Button
 				label="No"
 				icon="pi pi-times"
@@ -463,9 +554,10 @@ export default function DisplayUser() {
 				severity="danger"
 				onClick={deleteSelectedUsers}
 			/>
-		</React.Fragment>
+		</>
 	);
 
+	// Add loading indicator to DataTable
 	return users.length === 0 ? (
 		<div className="card w-3 m-auto">
 			<Message
@@ -492,6 +584,7 @@ export default function DisplayUser() {
 					dataKey="id"
 					rowHover
 					paginator
+					loading={loading} /* Added loading state */
 					rows={10}
 					rowsPerPageOptions={[5, 10, 25]}
 					paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"

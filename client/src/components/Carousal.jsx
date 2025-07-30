@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Galleria } from "primereact/galleria";
-import { PhotoService } from "../service/PhotoService";
+import { PhotoService } from "../../service/PhotoService";
 
 export default function Carousal() {
 	const [images, setImages] = useState(null);

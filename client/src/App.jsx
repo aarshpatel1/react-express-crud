@@ -4,16 +4,24 @@ import DisplayUser from "./components/DisplayUser";
 import Navbar from "./components/Navbar";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Carousal from "./components/Carousal";
+import ProtectedRoute from "./components/ProtectedRoute"; // Import ProtectedRoute
 
 function App() {
 	return (
 		<>
-			<Navbar />
 			<BrowserRouter>
+				<Navbar />
 				<Routes>
 					<Route path="/" element={<Carousal />} />
-					<Route path="/registerUser" element={<RegisterUser />} />
-					<Route path="/dashboard" element={<DisplayUser />} />
+					{/* Use ProtectedRoute for authenticated routes */}
+					<Route
+						path="/registerUser"
+						element={<ProtectedRoute component={RegisterUser} />}
+					/>
+					<Route
+						path="/dashboard"
+						element={<ProtectedRoute component={DisplayUser} />}
+					/>
 				</Routes>
 			</BrowserRouter>
 		</>
